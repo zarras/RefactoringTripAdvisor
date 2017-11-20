@@ -40,12 +40,9 @@ import javax.swing.ListSelectionModel;
 /*	This class implements the detection of Introduce Parameter Object opportunities
  *	in the user's code. It searches for methods with long parameter lists.
  */
-public class IntroduceParameterObjectIdentification implements RefactoringDetector 
+public class IntroduceParameterObjectIdentification extends RefactoringDetectorCode 
 {
-	private JFrame mainFrame;
-	private JPanel mainPanel;
-	private PackageExplorerSelection selectionInfo;
-	private boolean opportunitiesFound;
+
 	private ArrayList<ClassObject> declaringClasses;
 	private ArrayList<AbstractMethodDeclaration> candidateMethods;
 	private JLabel lblNewLabel_1;

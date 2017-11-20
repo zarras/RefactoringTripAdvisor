@@ -49,15 +49,11 @@ import UI.MainWindow;
  *	in the user's code. It uses the hierarchical agglomerative clustering
  *	algorithm implemented by JDeodorant.
  */
-public class ExtractClassIdentification  implements RefactoringDetector{
+public class ExtractClassIdentification  extends RefactoringDetectorCode{
 
-	private JFrame mainFrame;
-	private JPanel mainPanel;
 	private ArrayList<ExtractClassCandidateRefactoring> candidates;
 	private ArrayList<String> itemArray;
 	private ExtractClassCandidateGroup[] extractTable;
-	private PackageExplorerSelection selectionInfo;
-	private boolean opportunitiesFound;
 
 	public ExtractClassIdentification() {
 		mainFrame = new JFrame();

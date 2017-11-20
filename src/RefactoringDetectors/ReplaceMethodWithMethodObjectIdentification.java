@@ -47,15 +47,12 @@ import UI.MainWindow;
  *	in the user's code. It uses the same algorithm with Extract Method detection to 
  *	suggest methods for replacement with new objects.
  */
-public class ReplaceMethodWithMethodObjectIdentification implements RefactoringDetector {
+public class ReplaceMethodWithMethodObjectIdentification extends RefactoringDetectorCode {
 
-	private JFrame mainFrame;
-	private JPanel mainPanel;
+
 	private ASTSliceGroup[] slices;
 	private IWorkbenchPage page;
 	private Display display;
-	private PackageExplorerSelection selectionInfo;
-	private boolean opportunitiesFound;
 
 	public ReplaceMethodWithMethodObjectIdentification()
 	{

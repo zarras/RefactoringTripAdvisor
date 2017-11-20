@@ -71,14 +71,10 @@ import UI.MainWindow;
 /*	This class implements the detection of Introduce Explaining Variable opportunities
  *	in the user's code. It searches for expressions with multiple operators.
  */
-public class IntroduceExplainingVariableIdentification implements RefactoringDetector {
+public class IntroduceExplainingVariableIdentification extends RefactoringDetectorCode {
 
-	private JFrame mainFrame;
-	private JPanel mainPanel;
-	private PackageExplorerSelection selectionInfo;
 	private Display display;
 	private IWorkbenchPage page;
-	private boolean opportunitiesFound;
 	private ArrayList<Expression> candidateExpressions;
 	private ArrayList<ClassObject> classOfExpression;
 	private ArrayList<AbstractMethodDeclaration> methodOfExpression;
@@ -521,83 +517,68 @@ public class IntroduceExplainingVariableIdentification implements RefactoringDet
 		});
 	}
 	
-	private void getLongInfixExpressions(Expression expression, boolean isAssignmentExpression, ClassObject classObject, AbstractMethodDeclaration methodObject)
-	{
-		if (expression instanceof InfixExpression) 
+	
+	//Experimental replacement for finding candidates for adjustable threshold. Untested.
+	
+		private void getLongInfixExpressions(Expression expression, boolean isAssignmentExpression, ClassObject classObject, AbstractMethodDeclaration methodObject) //, int threshold)
 		{
-			InfixExpression infixExp = (InfixExpression) expression;
+			int threshold = 4;
 			
-			if(isAssignmentExpression)
+			if (expression instanceof InfixExpression) 
 			{
-				//System.out.println("EXPRESSION: " + expression.toString());
-				//System.out.println("LEFT: " + infixExp.getLeftOperand().toString());
-				//System.out.println("RIGHT: " + infixExp.getRightOperand().toString());
-				//System.out.println("HAS: " + infixExp.extendedOperands().size() + " EXTRA");
-
-				if((infixExp.getLeftOperand() instanceof InfixExpression) && (infixExp.getRightOperand() instanceof InfixExpression))
+				int expressionLength = 1;
+				InfixExpression infixExp = (InfixExpression) expression;
+				
+				if(isAssignmentExpression)
+				{
+					expressionLength = calculateInfixExpressionLength(infixExp, 1);
+					
+				}
+				else
+				{
+					getLongInfixExpressions(infixExp.getLeftOperand(), true, classObject, methodObject);//, threshold);
+					getLongInfixExpressions(infixExp.getRightOperand(), true, classObject, methodObject);//, threshold);
+				}
+				
+				if (expressionLength >= threshold)
 				{
 					candidateExpressions.add(expression);
 					classOfExpression.add(classObject);
 					methodOfExpression.add(methodObject);
+					System.out.println("------------------------" + expressionLength);
 				}
-				else if(!(infixExp.getLeftOperand() instanceof InfixExpression) && (infixExp.getRightOperand() instanceof InfixExpression))
-				{
-					InfixExpression rightInfixExp = (InfixExpression) infixExp.getRightOperand();
-
-					if((rightInfixExp.getRightOperand() instanceof InfixExpression) || (rightInfixExp.getLeftOperand() instanceof InfixExpression))
-					{
-						candidateExpressions.add(expression);
-						classOfExpression.add(classObject);
-						methodOfExpression.add(methodObject);
-					}
-					else 
-					{
-						if(((infixExp.hasExtendedOperands())&&(infixExp.extendedOperands().size() >= 1))
-							|| ((rightInfixExp.hasExtendedOperands())&&(rightInfixExp.extendedOperands().size() >= 1)))
-						{
-							candidateExpressions.add(expression);
-							classOfExpression.add(classObject);
-							methodOfExpression.add(methodObject);
-						}
-					}
-				}
-				else if((infixExp.getLeftOperand() instanceof InfixExpression) && !(infixExp.getRightOperand() instanceof InfixExpression))
-				{
-					InfixExpression leftInfixExp = (InfixExpression) infixExp.getLeftOperand();
-
-					if((leftInfixExp.getRightOperand() instanceof InfixExpression) || (leftInfixExp.getLeftOperand() instanceof InfixExpression))
-					{
-						candidateExpressions.add(expression);
-						classOfExpression.add(classObject);
-						methodOfExpression.add(methodObject);
-					}
-					else 
-					{
-						if(((infixExp.hasExtendedOperands())&&(infixExp.extendedOperands().size() >= 1))
-							|| ((leftInfixExp.hasExtendedOperands())&&(leftInfixExp.extendedOperands().size() >= 1)))
-						{
-							candidateExpressions.add(expression);
-							classOfExpression.add(classObject);
-							methodOfExpression.add(methodObject);
-						}
-					}
-				}
-				else
-				{
-					if((infixExp.hasExtendedOperands())&&(infixExp.extendedOperands().size() >= 2))
-					{
-						candidateExpressions.add(expression);
-						classOfExpression.add(classObject);
-						methodOfExpression.add(methodObject);
-					}
-				}
-			}
-			else
-			{
-				getLongInfixExpressions(infixExp.getLeftOperand(), true, classObject, methodObject);
-				getLongInfixExpressions(infixExp.getRightOperand(), true, classObject, methodObject);
-			}
+				
+			} 
 		}
-	}
+		
+		private int calculateInfixExpressionLength(InfixExpression expression, int infixExpressionLength)
+		{
+			int leftLength = 1;
+			int rightLength = 1;
+			int extendedOperandLength = 0;
+			if(expression.getLeftOperand() instanceof InfixExpression)
+			{
+				InfixExpression leftInfixExp = (InfixExpression) expression.getLeftOperand();
+				//System.out.println("left");
+				leftLength = calculateInfixExpressionLength(leftInfixExp, infixExpressionLength + 1);
+
+			}
+			
+			if(expression.getRightOperand() instanceof InfixExpression)
+			{
+				InfixExpression rightInfixExp = (InfixExpression) expression.getRightOperand();
+				//System.out.println("right");
+				rightLength = calculateInfixExpressionLength(rightInfixExp, infixExpressionLength + 1);
+			}
+			
+			if (expression.hasExtendedOperands())
+			{
+				extendedOperandLength = expression.extendedOperands().size();
+			}
+			
+			int newLength = rightLength + leftLength + extendedOperandLength;
+			
+			return newLength;
+		}
 	
 }

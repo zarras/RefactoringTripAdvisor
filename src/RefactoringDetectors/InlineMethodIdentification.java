@@ -44,12 +44,8 @@ import UI.MainWindow;
  *	in the user's code. It searches for private methods containing a single
  *	statement whose prefix does not include "get","set","add" or "remove".
  */
-public class InlineMethodIdentification implements RefactoringDetector {
+public class InlineMethodIdentification extends RefactoringDetectorCode {
 
-	private JFrame mainFrame;
-	private JPanel mainPanel;
-	private PackageExplorerSelection selectionInfo;
-	private boolean opportunitiesFound;
 	private ArrayList<AbstractMethodDeclaration> candidateMethods;
 	private ArrayList<ClassObject> declaringClasses;
 	

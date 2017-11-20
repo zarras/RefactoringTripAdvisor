@@ -53,12 +53,8 @@ import UI.MainWindow;
  *	than once. Warning: this algorithm also suggests loop counter variables as
  *	candidates for this refactoring.
  */
-public class SplitTemporaryVariableIdentification implements RefactoringDetector {
+public class SplitTemporaryVariableIdentification extends RefactoringDetectorCode {
 
-	private JFrame mainFrame;
-	private JPanel mainPanel;
-	private PackageExplorerSelection selectionInfo;
-	private boolean opportunitiesFound;
 	private ArrayList<VariableObject> variables;
 	
 	public SplitTemporaryVariableIdentification()

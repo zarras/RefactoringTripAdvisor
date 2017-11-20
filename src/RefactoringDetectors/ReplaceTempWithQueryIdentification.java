@@ -55,12 +55,9 @@ import java.awt.Font;
  *	in the user's code. It searches for local variables that are only assigned once
  *	by an infix expression containing only one operator.
  */
-public class ReplaceTempWithQueryIdentification implements RefactoringDetector {
+public class ReplaceTempWithQueryIdentification extends RefactoringDetectorCode {
 
-	private JFrame mainFrame;
-	private JPanel mainPanel;
-	private PackageExplorerSelection selectionInfo;
-	private boolean opportunitiesFound;
+
 	private ArrayList<VariableObject> variables;
 	
 	public ReplaceTempWithQueryIdentification()

@@ -73,15 +73,11 @@ import java.awt.event.ActionEvent;
  *	in the user's code. It uses the code slicing algorithm implemented 
  * 	by JDeodorant.
  */
-public class ExtractMethodIdentification implements RefactoringDetector{
+public class ExtractMethodIdentification extends RefactoringDetectorCode{
 
-	private JFrame mainFrame;
-	private JPanel mainPanel;
 	private ASTSliceGroup[] slices;
 	private IWorkbenchPage page;
 	private Display display;
-	private PackageExplorerSelection selectionInfo;
-	private boolean opportunitiesFound;
 
 	public ExtractMethodIdentification()
 	{

@@ -51,12 +51,8 @@ import UI.MainWindow;
 /*	This class implements the detection of Remove Assignments To Parameters opportunities
  *	in the user's code. It searches for any assignments done to each method's parameters.
  */
-public class RemoveAssignmentsToParametersIndentification implements RefactoringDetector{
+public class RemoveAssignmentsToParametersIndentification extends RefactoringDetectorCode{
 
-	private JFrame mainFrame;
-	private JPanel mainPanel;
-	private PackageExplorerSelection selectionInfo;
-	private boolean opportunitiesFound;
 	private ArrayList<MethodParameterObject> parameters;
 	
 	public RemoveAssignmentsToParametersIndentification()

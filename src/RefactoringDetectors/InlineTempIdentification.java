@@ -53,12 +53,8 @@ import UI.MainWindow;
  *	in the user's code. It searches for local variables that are 
  *	only set once and contain the result of a method call.
  */
-public class InlineTempIdentification implements RefactoringDetector {
+public class InlineTempIdentification extends RefactoringDetectorCode {
 
-	private JFrame mainFrame;
-	private JPanel mainPanel;
-	private PackageExplorerSelection selectionInfo;
-	private boolean opportunitiesFound;
 	private ArrayList<VariableObject> variables;
 	
 	public InlineTempIdentification()

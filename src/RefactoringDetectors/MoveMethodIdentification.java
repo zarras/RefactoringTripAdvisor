@@ -45,13 +45,10 @@ import UI.MainWindow;
  *	in the user's code. It uses JDeodorant's move method detection
  *	algorithm.
  */
-public class MoveMethodIdentification implements RefactoringDetector{
+public class MoveMethodIdentification extends RefactoringDetectorCode{
 
-	private JFrame mainFrame;
-	private JPanel mainPanel;
+
 	private CandidateRefactoring[] moveTable;
-	private PackageExplorerSelection selectionInfo;
-	private boolean opportunitiesFound;
 
 	public MoveMethodIdentification() {
 		mainFrame = new JFrame();
