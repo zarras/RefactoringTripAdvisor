@@ -2,26 +2,16 @@ package RefactoringDetectors;
 
 import gr.uom.java.ast.ASTReader;
 import gr.uom.java.ast.AbstractMethodDeclaration;
-import gr.uom.java.ast.ClassObject;
 import gr.uom.java.ast.LocalVariableDeclarationObject;
-import gr.uom.java.ast.MethodObject;
 import gr.uom.java.ast.SystemObject;
 
-import java.awt.Dimension;
-import java.awt.Point;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.ListIterator;
-import java.util.Set;
-
 import javax.swing.DefaultListModel;
 import javax.swing.JFrame;
 import javax.swing.JList;
-import javax.swing.JPanel;
 import javax.swing.ListSelectionModel;
-import javax.swing.border.EmptyBorder;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
@@ -42,40 +32,26 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.progress.IProgressService;
 import org.eclipse.jdt.core.dom.Expression;
 
-import DataHandling.PackageExplorerSelection;
 import ParsingHelpers.VariableObject;
 import UI.MainWindow;
 
 import javax.swing.JLabel;
 import javax.swing.SwingConstants;
-
 import java.awt.Font;
 
 /*	This class implements the detection of Replace Temp with Query opportunities
  *	in the user's code. It searches for local variables that are only assigned once
  *	by an infix expression containing only one operator.
  */
-public class ReplaceTempWithQueryIdentification extends RefactoringDetectorCode {
+public class ReplaceTempWithQueryIdentification extends RefactoringDetectorMethodSubject {
 
 
 	private ArrayList<VariableObject> variables;
+	private ArrayList<VariableObject> opportunities;
 	
 	public ReplaceTempWithQueryIdentification()
 	{
-		mainFrame = new JFrame();
-		mainFrame.setTitle("Replace Temp with Query Opportunities");
-		mainFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-		mainFrame.setResizable(false);
-		mainFrame.setLocation(new Point(200, 100));
-		mainFrame.setSize(new Dimension(800, 600));
-		mainFrame.setIconImage(java.awt.Toolkit.getDefaultToolkit().getImage(getClass().getResource("/images/repair.png")));
-		
-		mainPanel = new JPanel();
-		mainPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
-		mainFrame.setContentPane(mainPanel);
-		mainPanel.setLayout(null);
-		
-		opportunitiesFound = true;
+		super("Replace Temp with Query Opportunities");
 	}
 	
 	@Override
@@ -86,9 +62,8 @@ public class ReplaceTempWithQueryIdentification extends RefactoringDetectorCode 
 		
 		beginASTParsing();
 		
-		final ArrayList<VariableObject> tempVariables = findOpportunities();
-		
-		if(tempVariables.isEmpty())
+
+		if(opportunities.isEmpty())
 			opportunitiesFound = false;
 		
 		final JList list_1 = new JList();
@@ -105,11 +80,11 @@ public class ReplaceTempWithQueryIdentification extends RefactoringDetectorCode 
 				String[] splitted = value.split("::");
 				list2Model.clear();
 			
-				for (int i = 0; i < tempVariables.size(); i++) {
-					if((tempVariables.get(i).getClassObject().getName().equals(splitted[0]))
-						&&((tempVariables.get(i).getMethodObject().getName().equals(splitted[1]))))
+				for (int i = 0; i < opportunities.size(); i++) {
+					if((opportunities.get(i).getClassObject().getName().equals(splitted[0]))
+						&&((opportunities.get(i).getMethodObject().getName().equals(splitted[1]))))
 					{
-						list2Model.addElement(tempVariables.get(i).getType().toString() + " " + tempVariables.get(i).getVariable().getName());
+						list2Model.addElement(opportunities.get(i).getType().toString() + " " + opportunities.get(i).getVariable().getName());
 					}
 				}
 				
@@ -118,7 +93,7 @@ public class ReplaceTempWithQueryIdentification extends RefactoringDetectorCode 
 		});
 		list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		list.setBounds(10, 120, 350, 441);
-		list.setModel(computeListModel(tempVariables));
+		list.setModel(computeListModel(opportunities));
 		mainPanel.add(list);
 
 		JLabel lblChooseAMethod = new JLabel("Choose a method to view its Replace Temp with Query Opportunities");
@@ -202,78 +177,21 @@ public class ReplaceTempWithQueryIdentification extends RefactoringDetectorCode 
 						}
 						
 						final SystemObject systemObject = ASTReader.getSystemObject();
-						final Set<ClassObject> classObjectsToBeExamined = new LinkedHashSet<ClassObject>();
-						final Set<AbstractMethodDeclaration> methodObjectsToBeExamined = new LinkedHashSet<AbstractMethodDeclaration>();
 						
-						if(selectionInfo.getSelectedPackageFragmentRoot() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedPackageFragmentRoot()));
-						}
-						else if(selectionInfo.getSelectedPackageFragment() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedPackageFragment()));
-						}
-						else if(selectionInfo.getSelectedCompilationUnit() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedCompilationUnit()));
-						}
-						else if(selectionInfo.getSelectedType() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedType()));
-						}
-						else if(selectionInfo.getSelectedMethod() != null) {
-							AbstractMethodDeclaration methodObject = systemObject.getMethodObject(selectionInfo.getSelectedMethod());
-							if(methodObject != null) {
-								ClassObject declaringClass = systemObject.getClassObject(methodObject.getClassName());
-								if(declaringClass != null && !declaringClass.isEnum() && !declaringClass.isInterface() && methodObject.getMethodBody() != null)
-									methodObjectsToBeExamined.add(methodObject);
-							}
-						}
-						else {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects());
-						}
+						identifySubjects(identifyScope(), systemObject);
+						identifyOpportunities(systemObject);
 						
-						//Some print tests
 						
-						if(!classObjectsToBeExamined.isEmpty())
-						{
-							for(ClassObject classObject : classObjectsToBeExamined)
-							{
-								if(!classObject.isEnum() && !classObject.isInterface()) 
-								{
-									ListIterator<MethodObject> methodIterator = classObject.getMethodIterator();
-									while(methodIterator.hasNext()) 
-									{
-										methodObjectsToBeExamined.add(methodIterator.next());
-									}
-								}
-							}
-						}
-						
-						if(!methodObjectsToBeExamined.isEmpty())
-						{
-							for(AbstractMethodDeclaration methodObject : methodObjectsToBeExamined)
-							{																
-								List<LocalVariableDeclarationObject> localVariables = methodObject.getLocalVariableDeclarations();
-								
-								List<Statement> statements = methodObject.getMethodDeclaration().getBody().statements();
-								
-								for (LocalVariableDeclarationObject local : localVariables) {																		
-									Expression initializer = local.getVariableDeclaration().getInitializer();															
-									
-									variables.add(new VariableObject(systemObject.getClassObject(methodObject.getClassName()),methodObject,local.getType(),local,initializer));
-								}		
-								
-								findAssignments(statements);
-								
-								/*
-								for(int j=0; j<variables.size(); j++)
-								{
-									variables.get(j).printDetails();
-								}
-								*/
-							}
-						}
 					}
 					catch (InvocationTargetException e) {
 						e.printStackTrace();
 					} catch (InterruptedException e) {
+						e.printStackTrace();
+					} catch (ClassNotFoundException e) {
+						e.printStackTrace();
+					} catch (IllegalAccessException e) {
+						e.printStackTrace();
+					} catch (IllegalArgumentException e) {
 						e.printStackTrace();
 					}
 				}
@@ -408,18 +326,36 @@ public class ReplaceTempWithQueryIdentification extends RefactoringDetectorCode 
 		}
 	}
 
-	private ArrayList<VariableObject> findOpportunities()
+	private void identifyOpportunities(SystemObject systemObject)
 	{
-		ArrayList<VariableObject> tempVariables = new ArrayList<VariableObject>();
+		if(!subjectList.isEmpty())
+		{
+			for(AbstractMethodDeclaration methodObject : subjectList)
+			{																
+				List<LocalVariableDeclarationObject> localVariables = methodObject.getLocalVariableDeclarations();
+				
+				List<Statement> statements = methodObject.getMethodDeclaration().getBody().statements();
+				
+				for (LocalVariableDeclarationObject local : localVariables) {																		
+					Expression initializer = local.getVariableDeclaration().getInitializer();															
+					
+					variables.add(new VariableObject(systemObject.getClassObject(methodObject.getClassName()),methodObject,local.getType(),local,initializer));
+				}		
+				
+				findAssignments(statements);
+				
+			}
+		}
+		
+		opportunities = new ArrayList<VariableObject>();
 		
 		for (int i = 0; i < variables.size(); i++) {
 			if((variables.get(i).getAssignments().size() == 1)
 				&&(variables.get(i).getAssignments().get(0) instanceof InfixExpression))
 			{
-				tempVariables.add(variables.get(i));
+				opportunities.add(variables.get(i));
 			}
 		}
 		
-		return tempVariables;
 	}
 }

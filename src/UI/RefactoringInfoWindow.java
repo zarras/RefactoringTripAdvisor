@@ -16,6 +16,7 @@ import javax.swing.border.EmptyBorder;
 
 import DataHandling.RefactoringOptions;
 import RefactoringDetectors.RefactoringDetector;
+import RefactoringDetectors.RefactoringDetector;
 
 import java.awt.Font;
 import java.awt.event.ActionEvent;

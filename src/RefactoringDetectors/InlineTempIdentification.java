@@ -2,29 +2,19 @@ package RefactoringDetectors;
 
 import gr.uom.java.ast.ASTReader;
 import gr.uom.java.ast.AbstractMethodDeclaration;
-import gr.uom.java.ast.ClassObject;
 import gr.uom.java.ast.LocalVariableDeclarationObject;
-import gr.uom.java.ast.MethodObject;
 import gr.uom.java.ast.SystemObject;
 
-import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.Point;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.ListIterator;
-import java.util.Set;
-
 import javax.swing.DefaultListModel;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
-import javax.swing.JPanel;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
-import javax.swing.border.EmptyBorder;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
@@ -45,7 +35,6 @@ import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.progress.IProgressService;
 
-import DataHandling.PackageExplorerSelection;
 import ParsingHelpers.VariableObject;
 import UI.MainWindow;
 
@@ -53,26 +42,14 @@ import UI.MainWindow;
  *	in the user's code. It searches for local variables that are 
  *	only set once and contain the result of a method call.
  */
-public class InlineTempIdentification extends RefactoringDetectorCode {
+public class InlineTempIdentification extends RefactoringDetectorMethodSubject {
 
-	private ArrayList<VariableObject> variables;
+	
+	private ArrayList<VariableObject> opportunities;
 	
 	public InlineTempIdentification()
 	{
-		mainFrame = new JFrame();
-		mainFrame.setTitle("Inline Temp Opportunities");
-		mainFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-		mainFrame.setResizable(false);
-		mainFrame.setLocation(new Point(200, 100));
-		mainFrame.setSize(new Dimension(800, 600));
-		mainFrame.setIconImage(java.awt.Toolkit.getDefaultToolkit().getImage(getClass().getResource("/images/repair.png")));
-		
-		mainPanel = new JPanel();
-		mainPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
-		mainFrame.setContentPane(mainPanel);
-		mainPanel.setLayout(null);
-		
-		opportunitiesFound = true;
+		super("Inline Temp Opportunities");
 	}
 	
 	@Override
@@ -81,10 +58,8 @@ public class InlineTempIdentification extends RefactoringDetectorCode {
 		selectionInfo = map.getSelectionInfo();
 		
 		beginASTParsing();
-		
-		final ArrayList<VariableObject> tempVariables = findOpportunities();
-		
-		if(tempVariables.isEmpty())
+
+		if(opportunities.isEmpty())
 			opportunitiesFound = false;
 		
 		final JList list_1 = new JList();
@@ -100,13 +75,12 @@ public class InlineTempIdentification extends RefactoringDetectorCode {
 				list2Model.clear();
 				String value = (String) list.getSelectedValue();
 				String[] splitted = value.split("::");
-				
-			
-				for (int i = 0; i < tempVariables.size(); i++) {
-					if((tempVariables.get(i).getClassObject().getName().equals(splitted[0]))
-						&&((tempVariables.get(i).getMethodObject().getName().equals(splitted[1]))))
+								
+				for (int i = 0; i < opportunities.size(); i++) {
+					if((opportunities.get(i).getClassObject().getName().equals(splitted[0]))
+						&&((opportunities.get(i).getMethodObject().getName().equals(splitted[1]))))
 					{
-						list2Model.addElement(tempVariables.get(i).getType().toString() + " " + tempVariables.get(i).getVariable().getName());
+						list2Model.addElement(opportunities.get(i).getType().toString() + " " + opportunities.get(i).getVariable().getName());
 					}
 				}
 				
@@ -115,7 +89,7 @@ public class InlineTempIdentification extends RefactoringDetectorCode {
 		});
 		list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		list.setBounds(10, 120, 350, 441);
-		list.setModel(computeListModel(tempVariables));
+		list.setModel(computeListModel(opportunities));
 		mainPanel.add(list);
 
 		JLabel lblChooseAMethod = new JLabel("Choose a method to view its Inline Temp Opportunities");
@@ -176,8 +150,6 @@ public class InlineTempIdentification extends RefactoringDetectorCode {
 	
 	private void beginASTParsing()
 	{
-		variables = new ArrayList<VariableObject>();
-		
 		if(selectionInfo.getSelectedProject() == null)
 			System.out.println("null selected project - should not be printed");
 		else 
@@ -187,83 +159,27 @@ public class InlineTempIdentification extends RefactoringDetectorCode {
 					try {
 						IWorkbench wb = PlatformUI.getWorkbench();
 						IProgressService ps = wb.getProgressService();
-						/*if(ASTReader.getSystemObject() != null && selectionInfo.getSelectedProject().equals(ASTReader.getExaminedProject())) {
-							new ASTReader(selectionInfo.getSelectedProject(), ASTReader.getSystemObject(), null);
-						}
-						else {*/
 							ps.busyCursorWhile(new IRunnableWithProgress() {
 								public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
 									new ASTReader(selectionInfo.getSelectedProject(), null);
 								}
 							});
-						//}
 						
 						final SystemObject systemObject = ASTReader.getSystemObject();
-						final Set<ClassObject> classObjectsToBeExamined = new LinkedHashSet<ClassObject>();
-						final Set<AbstractMethodDeclaration> methodObjectsToBeExamined = new LinkedHashSet<AbstractMethodDeclaration>();
 						
-						if(selectionInfo.getSelectedPackageFragmentRoot() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedPackageFragmentRoot()));
-						}
-						else if(selectionInfo.getSelectedPackageFragment() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedPackageFragment()));
-						}
-						else if(selectionInfo.getSelectedCompilationUnit() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedCompilationUnit()));
-						}
-						else if(selectionInfo.getSelectedType() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedType()));
-						}
-						else if(selectionInfo.getSelectedMethod() != null) {
-							AbstractMethodDeclaration methodObject = systemObject.getMethodObject(selectionInfo.getSelectedMethod());
-							if(methodObject != null) {
-								ClassObject declaringClass = systemObject.getClassObject(methodObject.getClassName());
-								if(declaringClass != null && !declaringClass.isEnum() && !declaringClass.isInterface() && methodObject.getMethodBody() != null)
-									methodObjectsToBeExamined.add(methodObject);
-							}
-						}
-						else {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects());
-						}
-						
-						//Some print tests
-						
-						if(!classObjectsToBeExamined.isEmpty())
-						{
-							for(ClassObject classObject : classObjectsToBeExamined)
-							{
-								if(!classObject.isEnum() && !classObject.isInterface()) 
-								{
-									ListIterator<MethodObject> methodIterator = classObject.getMethodIterator();
-									while(methodIterator.hasNext()) 
-									{
-										methodObjectsToBeExamined.add(methodIterator.next());
-									}
-								}
-							}
-						}
-						
-						if(!methodObjectsToBeExamined.isEmpty())
-						{
-							for(AbstractMethodDeclaration methodObject : methodObjectsToBeExamined)
-							{																
-								List<LocalVariableDeclarationObject> localVariables = methodObject.getLocalVariableDeclarations();
-								
-								List<Statement> statements = methodObject.getMethodDeclaration().getBody().statements();
-								
-								for (LocalVariableDeclarationObject local : localVariables) {		
-									Expression initializer = local.getVariableDeclaration().getInitializer();															
-									
-									variables.add(new VariableObject(systemObject.getClassObject(methodObject.getClassName()),methodObject,local.getType(),local,initializer));
-								}		
-								
-								findAssignments(statements);
-							}
-						}
+						identifySubjects(identifyScope(), systemObject);
+						identifyOpportunities(systemObject);
+							
 					}
 					catch (InvocationTargetException e) {
 						e.printStackTrace();
 					} catch (InterruptedException e) {
+						e.printStackTrace();
+					} catch (ClassNotFoundException e) {
+						e.printStackTrace();
+					} catch (IllegalAccessException e) {
+						e.printStackTrace();
+					} catch (IllegalArgumentException e) {
 						e.printStackTrace();
 					}
 				}
@@ -271,12 +187,45 @@ public class InlineTempIdentification extends RefactoringDetectorCode {
 		}
 	}
 	
-	private void findAssignments(List<Statement> statements)
+	private void identifyOpportunities(SystemObject systemObject)
+	{
+		ArrayList<VariableObject> variables = new ArrayList<VariableObject>();;
+		
+		if(!subjectList.isEmpty())
+		{
+			for(AbstractMethodDeclaration methodObject : subjectList)
+			{																
+				List<LocalVariableDeclarationObject> localVariables = methodObject.getLocalVariableDeclarations();
+				
+				List<Statement> statements = methodObject.getMethodDeclaration().getBody().statements();
+				
+				for (LocalVariableDeclarationObject local : localVariables) {		
+					Expression initializer = local.getVariableDeclaration().getInitializer();															
+					
+					variables.add(new VariableObject(systemObject.getClassObject(methodObject.getClassName()),methodObject,local.getType(),local,initializer));
+				}		
+				
+				findAssignments(statements, variables);
+			}
+		}
+		
+		opportunities = new ArrayList<VariableObject>();
+		
+		for (int i = 0; i < variables.size(); i++) {
+			if((variables.get(i).getAssignments().size() == 1) 
+					&&(variables.get(i).getAssignments().get(0) instanceof MethodInvocation))
+			{
+				opportunities.add(variables.get(i));
+			}
+		}
+	}
+	
+	protected void findAssignments(List<Statement> statements, ArrayList<VariableObject> variables)
 	{
 		Expression expression;
 		
 		ArrayList<Statement> recursiveStatements = new ArrayList<Statement>();
-
+		
 		for (int i = 0; i < statements.size(); i++) {
 			Statement statement = statements.get(i);		
 			
@@ -310,12 +259,12 @@ public class InlineTempIdentification extends RefactoringDetectorCode {
 				if(forBody instanceof Block)
 				{
 					Block forBlock = (Block) forBody;
-					findAssignments(forBlock.statements());
+					findAssignments(forBlock.statements(), variables);
 				}
 				else 
 				{
 					recursiveStatements.add(forBody);
-					findAssignments(recursiveStatements);
+					findAssignments(recursiveStatements, variables);
 				}
 			}
 			else if(statement instanceof DoStatement)
@@ -327,12 +276,12 @@ public class InlineTempIdentification extends RefactoringDetectorCode {
 				if(doBody instanceof Block)
 				{
 					Block doBlock = (Block) doBody;
-					findAssignments(doBlock.statements());
+					findAssignments(doBlock.statements(), variables);
 				}
 				else 
 				{
 					recursiveStatements.add(doBody);
-					findAssignments(recursiveStatements);
+					findAssignments(recursiveStatements, variables);
 				}
 			}
 			else if(statement instanceof WhileStatement)
@@ -344,12 +293,12 @@ public class InlineTempIdentification extends RefactoringDetectorCode {
 				if(whileBody instanceof Block)
 				{
 					Block whileBlock = (Block) whileBody;
-					findAssignments(whileBlock.statements());
+					findAssignments(whileBlock.statements(), variables);
 				}
 				else 
 				{
 					recursiveStatements.add(whileBody);
-					findAssignments(recursiveStatements);
+					findAssignments(recursiveStatements, variables);
 				}
 			}
 			else if(statement instanceof IfStatement)
@@ -362,12 +311,12 @@ public class InlineTempIdentification extends RefactoringDetectorCode {
 				if(thenBody instanceof Block)
 				{
 					Block thenBlock = (Block) thenBody;
-					findAssignments(thenBlock.statements());
+					findAssignments(thenBlock.statements(), variables);
 				}
 				else 
 				{
 					recursiveStatements.add(thenBody);
-					findAssignments(recursiveStatements);
+					findAssignments(recursiveStatements, variables);
 				}
 				
 				if(elseBody != null)
@@ -375,12 +324,12 @@ public class InlineTempIdentification extends RefactoringDetectorCode {
 					if(elseBody instanceof Block)
 					{
 						Block elseBlock = (Block) elseBody;
-						findAssignments(elseBlock.statements());
+						findAssignments(elseBlock.statements(), variables);
 					}
 					else 
 					{
 						recursiveStatements.add(elseBody);
-						findAssignments(recursiveStatements);
+						findAssignments(recursiveStatements, variables);
 					}
 				}
 			}
@@ -391,25 +340,10 @@ public class InlineTempIdentification extends RefactoringDetectorCode {
 				Block tryBody = tryStatement.getBody();
 				Block finallyBody = tryStatement.getFinally();
 				
-				findAssignments(tryBody.statements());
+				findAssignments(tryBody.statements(), variables);
 				if(finallyBody != null)
-					findAssignments(finallyBody.statements());
+					findAssignments(finallyBody.statements(), variables);
 			}
 		}
-	}
-
-	private ArrayList<VariableObject> findOpportunities()
-	{
-		ArrayList<VariableObject> tempVariables = new ArrayList<VariableObject>();
-		
-		for (int i = 0; i < variables.size(); i++) {
-			if((variables.get(i).getAssignments().size() == 1) 
-					&&(variables.get(i).getAssignments().get(0) instanceof MethodInvocation))
-			{
-				tempVariables.add(variables.get(i));
-			}
-		}
-		
-		return tempVariables;
 	}
 }

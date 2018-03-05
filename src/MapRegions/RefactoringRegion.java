@@ -23,6 +23,7 @@ import relationshipEdges.Relationship;
 import DataHandling.GraphProperties;
 import DataHandling.RefactoringOptions;
 import RefactoringDetectors.RefactoringDetector;
+import RefactoringDetectors.RefactoringDetector;
 import UI.MainWindow;
 
 import com.mxgraph.layout.mxIGraphLayout;

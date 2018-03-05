@@ -4,22 +4,16 @@ import gr.uom.java.ast.ASTReader;
 import gr.uom.java.ast.AbstractMethodDeclaration;
 import gr.uom.java.ast.ClassObject;
 import gr.uom.java.ast.LocalVariableDeclarationObject;
-import gr.uom.java.ast.MethodObject;
 import gr.uom.java.ast.SystemObject;
 import gr.uom.java.jdeodorant.refactoring.views.SliceAnnotation;
 
 import java.awt.Component;
-import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.ListIterator;
-import java.util.Set;
 import java.util.Vector;
 
 import javax.swing.DefaultListModel;
@@ -28,10 +22,8 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
-import javax.swing.JPanel;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
-import javax.swing.border.EmptyBorder;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
@@ -65,13 +57,12 @@ import org.eclipse.ui.part.FileEditorInput;
 import org.eclipse.ui.progress.IProgressService;
 import org.eclipse.ui.texteditor.ITextEditor;
 
-import DataHandling.PackageExplorerSelection;
 import UI.MainWindow;
 
 /*	This class implements the detection of Introduce Explaining Variable opportunities
  *	in the user's code. It searches for expressions with multiple operators.
  */
-public class IntroduceExplainingVariableIdentification extends RefactoringDetectorCode {
+public class IntroduceExplainingVariableIdentification extends RefactoringDetectorMethodSubject {
 
 	private Display display;
 	private IWorkbenchPage page;
@@ -79,22 +70,11 @@ public class IntroduceExplainingVariableIdentification extends RefactoringDetect
 	private ArrayList<ClassObject> classOfExpression;
 	private ArrayList<AbstractMethodDeclaration> methodOfExpression;
 	
+	int threshold;
+	
 	public IntroduceExplainingVariableIdentification()
 	{
-		mainFrame = new JFrame();
-		mainFrame.setTitle("Introduce Explaining Variable Opportunities");
-		mainFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-		mainFrame.setResizable(false);
-		mainFrame.setLocation(new Point(200, 100));
-		mainFrame.setSize(new Dimension(800, 600));
-		mainFrame.setIconImage(java.awt.Toolkit.getDefaultToolkit().getImage(getClass().getResource("/images/repair.png")));
-		
-		mainPanel = new JPanel();
-		mainPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
-		mainFrame.setContentPane(mainPanel);
-		mainPanel.setLayout(null);
-		
-		opportunitiesFound = true;
+		super("Introduce Explaining Variable Opportunities");
 	}
 	
 	@Override
@@ -261,76 +241,48 @@ public class IntroduceExplainingVariableIdentification extends RefactoringDetect
 						}
 						
 						final SystemObject systemObject = ASTReader.getSystemObject();
-						final Set<ClassObject> classObjectsToBeExamined = new LinkedHashSet<ClassObject>();
-						final Set<AbstractMethodDeclaration> methodObjectsToBeExamined = new LinkedHashSet<AbstractMethodDeclaration>();
 						
-						if(selectionInfo.getSelectedPackageFragmentRoot() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedPackageFragmentRoot()));
-						}
-						else if(selectionInfo.getSelectedPackageFragment() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedPackageFragment()));
-						}
-						else if(selectionInfo.getSelectedCompilationUnit() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedCompilationUnit()));
-						}
-						else if(selectionInfo.getSelectedType() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedType()));
-						}
-						else if(selectionInfo.getSelectedMethod() != null) {
-							AbstractMethodDeclaration methodObject = systemObject.getMethodObject(selectionInfo.getSelectedMethod());
-							if(methodObject != null) {
-								ClassObject declaringClass = systemObject.getClassObject(methodObject.getClassName());
-								if(declaringClass != null && !declaringClass.isEnum() && !declaringClass.isInterface() && methodObject.getMethodBody() != null)
-									methodObjectsToBeExamined.add(methodObject);
-							}
-						}
-						else {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects());
-						}
-
-						if(!classObjectsToBeExamined.isEmpty())
-						{
-							for(ClassObject classObject : classObjectsToBeExamined)
-							{
-								if(!classObject.isEnum() && !classObject.isInterface()) 
-								{
-									ListIterator<MethodObject> methodIterator = classObject.getMethodIterator();
-									while(methodIterator.hasNext()) 
-									{
-										methodObjectsToBeExamined.add(methodIterator.next());
-									}
-								}
-							}
-						}
-						
-						if(!methodObjectsToBeExamined.isEmpty())
-						{
-							for(AbstractMethodDeclaration methodObject : methodObjectsToBeExamined)
-							{									
-								List<Statement> statements = methodObject.getMethodDeclaration().getBody().statements();
-								
-								List<LocalVariableDeclarationObject> localVariables = methodObject.getLocalVariableDeclarations();
-								
-								ClassObject declaringClass = systemObject.getClassObject(methodObject.getClassName());
-								
-								for (LocalVariableDeclarationObject local : localVariables) {
-									if(local.getVariableDeclaration().getInitializer() != null)
-									{
-										getLongInfixExpressions(local.getVariableDeclaration().getInitializer(), true, declaringClass ,methodObject);
-									}
-								}
-								
-								findAssignments(statements,declaringClass,methodObject);
-							}
-						}
+						identifySubjects(identifyScope(), systemObject);
+						identifyOpportunities(systemObject);
+							
 					}
 					catch (InvocationTargetException e) {
 						e.printStackTrace();
 					} catch (InterruptedException e) {
 						e.printStackTrace();
+					} catch (ClassNotFoundException e) {
+						e.printStackTrace();
+					} catch (IllegalAccessException e) {
+						e.printStackTrace();
+					} catch (IllegalArgumentException e) {
+						e.printStackTrace();
 					}
 				}
 			});
+		}
+	}
+	
+	private void identifyOpportunities(SystemObject systemObject)
+	{
+		if(!subjectList.isEmpty())
+		{
+			for(AbstractMethodDeclaration methodObject : subjectList)
+			{									
+				List<Statement> statements = methodObject.getMethodDeclaration().getBody().statements();
+				
+				List<LocalVariableDeclarationObject> localVariables = methodObject.getLocalVariableDeclarations();
+				
+				ClassObject declaringClass = systemObject.getClassObject(methodObject.getClassName());
+				
+				for (LocalVariableDeclarationObject local : localVariables) {
+					if(local.getVariableDeclaration().getInitializer() != null)
+					{
+						getLongInfixExpressions(local.getVariableDeclaration().getInitializer(), true, declaringClass ,methodObject);
+					}
+				}
+				
+				findAssignments(statements,declaringClass,methodObject);
+			}
 		}
 	}
 	
@@ -517,12 +469,8 @@ public class IntroduceExplainingVariableIdentification extends RefactoringDetect
 		});
 	}
 	
-	
-	//Experimental replacement for finding candidates for adjustable threshold. Untested.
-	
-		private void getLongInfixExpressions(Expression expression, boolean isAssignmentExpression, ClassObject classObject, AbstractMethodDeclaration methodObject) //, int threshold)
+	private void getLongInfixExpressions(Expression expression, boolean isAssignmentExpression, ClassObject classObject, AbstractMethodDeclaration methodObject) //, int threshold)
 		{
-			int threshold = 4;
 			
 			if (expression instanceof InfixExpression) 
 			{
@@ -559,7 +507,6 @@ public class IntroduceExplainingVariableIdentification extends RefactoringDetect
 			if(expression.getLeftOperand() instanceof InfixExpression)
 			{
 				InfixExpression leftInfixExp = (InfixExpression) expression.getLeftOperand();
-				//System.out.println("left");
 				leftLength = calculateInfixExpressionLength(leftInfixExp, infixExpressionLength + 1);
 
 			}
@@ -567,7 +514,6 @@ public class IntroduceExplainingVariableIdentification extends RefactoringDetect
 			if(expression.getRightOperand() instanceof InfixExpression)
 			{
 				InfixExpression rightInfixExp = (InfixExpression) expression.getRightOperand();
-				//System.out.println("right");
 				rightLength = calculateInfixExpressionLength(rightInfixExp, infixExpressionLength + 1);
 			}
 			
@@ -579,6 +525,5 @@ public class IntroduceExplainingVariableIdentification extends RefactoringDetect
 			int newLength = rightLength + leftLength + extendedOperandLength;
 			
 			return newLength;
-		}
-	
+		}	
 }

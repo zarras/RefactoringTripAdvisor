@@ -6,12 +6,7 @@ import gr.uom.java.distance.DistanceMatrix;
 import gr.uom.java.distance.MoveMethodCandidateRefactoring;
 import gr.uom.java.distance.MySystem;
 
-import java.awt.Dimension;
-import java.awt.Point;
-
 import javax.swing.JFrame;
-import javax.swing.JPanel;
-import javax.swing.border.EmptyBorder;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.DefaultListModel;
@@ -38,33 +33,19 @@ import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.progress.IProgressService;
 
-import DataHandling.PackageExplorerSelection;
 import UI.MainWindow;
 
 /*	This class implements the detection of Move Method opportunities
  *	in the user's code. It uses JDeodorant's move method detection
  *	algorithm.
  */
-public class MoveMethodIdentification extends RefactoringDetectorCode{
+public class MoveMethodIdentification extends RefactoringDetectorClassSubject{
 
 
 	private CandidateRefactoring[] moveTable;
 
 	public MoveMethodIdentification() {
-		mainFrame = new JFrame();
-		mainFrame.setTitle("Move Method Opportunities");
-		mainFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-		mainFrame.setResizable(false);
-		mainFrame.setLocation(new Point(200, 100));
-		mainFrame.setSize(new Dimension(800, 600));
-		mainFrame.setIconImage(java.awt.Toolkit.getDefaultToolkit().getImage(getClass().getResource("/images/repair.png")));
-		
-		mainPanel = new JPanel();
-		mainPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
-		mainFrame.setContentPane(mainPanel);
-		mainPanel.setLayout(null);
-		
-		opportunitiesFound = true;
+		super("Move Method Opportunities");
 	}
 	
 	@Override
@@ -150,14 +131,6 @@ public class MoveMethodIdentification extends RefactoringDetectorCode{
 			for (int i = 0; i < moveTable.length; i++) {
 				if(!moveTable[i].getSource().equals(""))
 				{
-					/*
-					String splitted[] = moveTable[i].getSourceEntity().split(":");
-					for (int j = 0; j < splitted.length; j++) {
-						System.out.println("SPLIT[" + j + "]: " + splitted[j]);
-					}*/
-					//System.out.println("SOURCE: " + moveTable[i].getSource());
-					//System.out.println("SOURCE ENTITY: " + moveTable[i].getSourceEntity());
-					//System.out.println("SOURCE TYPE DECLARATION: " + moveTable[i].getSourceClassTypeDeclaration().toString());
 					listModel.addElement(moveTable[i].getSourceEntity());
 				}
 			}
@@ -176,68 +149,69 @@ public class MoveMethodIdentification extends RefactoringDetectorCode{
 					try {
 						IWorkbench wb = PlatformUI.getWorkbench();
 						IProgressService ps = wb.getProgressService();
-						/*if(ASTReader.getSystemObject() != null && selectionInfo.getSelectedProject().equals(ASTReader.getExaminedProject())) {
-							new ASTReader(selectionInfo.getSelectedProject(), ASTReader.getSystemObject(), null);
-						}
-						else {*/
 							ps.busyCursorWhile(new IRunnableWithProgress() {
 								public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
 									new ASTReader(selectionInfo.getSelectedProject(), monitor);
 								}
 							});
-						//}
 						SystemObject systemObject = ASTReader.getSystemObject();
-						Set<ClassObject> classObjectsToBeExamined = new LinkedHashSet<ClassObject>();
-						if(selectionInfo.getSelectedPackageFragmentRoot() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedPackageFragmentRoot()));
-						}
-						else if(selectionInfo.getSelectedPackageFragment() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedPackageFragment()));
-						}
-						else if(selectionInfo.getSelectedCompilationUnit() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedCompilationUnit()));
-						}
-						else if(selectionInfo.getSelectedType() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedType()));
-						}
-						else {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects());
-						}
-			
-						final Set<String> classNamesToBeExamined = new LinkedHashSet<String>();
-						for(ClassObject classObject : classObjectsToBeExamined) {
-							if(!classObject.isEnum())
-								classNamesToBeExamined.add(classObject.getName());
-						}
-						MySystem system = new MySystem(systemObject, false);
-						final DistanceMatrix distanceMatrix = new DistanceMatrix(system);
-						ps.busyCursorWhile(new IRunnableWithProgress() {
-							public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
-								distanceMatrix.generateDistances(monitor);
-							}
-						});
-						final List<MoveMethodCandidateRefactoring> moveMethodCandidateList = new ArrayList<MoveMethodCandidateRefactoring>();
-			
-						ps.busyCursorWhile(new IRunnableWithProgress() {
-							public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
-								moveMethodCandidateList.addAll(distanceMatrix.getMoveMethodCandidateRefactoringsByAccess(classNamesToBeExamined, monitor));
-							}
-						});
-			
-						moveTable = new CandidateRefactoring[moveMethodCandidateList.size() + 1];
-						moveTable[0] = new CurrentSystem(distanceMatrix);
-						int counter = 1;
-						for(MoveMethodCandidateRefactoring candidate : moveMethodCandidateList) {
-							moveTable[counter] = candidate;
-							counter++;
-						}
+						identifySubjects(identifyScope(), systemObject);
+						identifyOpportunities(systemObject, ps);
+						
+						
+						
 					} catch (InvocationTargetException e) {
 						e.printStackTrace();
 					} catch (InterruptedException e) {
 						e.printStackTrace();
+					} catch (ClassNotFoundException e) {
+						e.printStackTrace();
+					} catch (IllegalAccessException e) {
+						e.printStackTrace();
+					} catch (IllegalArgumentException e) {
+						e.printStackTrace();
 					}
 				}
 			});
+		}
+	}
+	
+	private void identifyOpportunities(SystemObject systemObject, IProgressService ps)
+	{
+		final Set<String> classNamesToBeExamined = new LinkedHashSet<String>();
+		for(ClassObject classObject : subjectList) {
+			if(!classObject.isEnum())
+				classNamesToBeExamined.add(classObject.getName());
+		}
+		MySystem system = new MySystem(systemObject, false);
+		final DistanceMatrix distanceMatrix = new DistanceMatrix(system);
+		try {
+			ps.busyCursorWhile(new IRunnableWithProgress() {
+				public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
+					distanceMatrix.generateDistances(monitor);
+				}
+			});
+		} catch (InvocationTargetException | InterruptedException e) {
+			e.printStackTrace();
+		}
+		final List<MoveMethodCandidateRefactoring> moveMethodCandidateList = new ArrayList<MoveMethodCandidateRefactoring>();
+
+		try {
+			ps.busyCursorWhile(new IRunnableWithProgress() {
+				public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
+					moveMethodCandidateList.addAll(distanceMatrix.getMoveMethodCandidateRefactoringsByAccess(classNamesToBeExamined, monitor));
+				}
+			});
+		} catch (InvocationTargetException | InterruptedException e) {
+			e.printStackTrace();
+		}
+
+		moveTable = new CandidateRefactoring[moveMethodCandidateList.size() + 1];
+		moveTable[0] = new CurrentSystem(distanceMatrix);
+		int counter = 1;
+		for(MoveMethodCandidateRefactoring candidate : moveMethodCandidateList) {
+			moveTable[counter] = candidate;
+			counter++;
 		}
 	}
 }

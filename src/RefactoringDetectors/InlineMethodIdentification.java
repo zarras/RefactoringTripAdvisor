@@ -3,28 +3,18 @@ package RefactoringDetectors;
 import gr.uom.java.ast.ASTReader;
 import gr.uom.java.ast.AbstractMethodDeclaration;
 import gr.uom.java.ast.ClassObject;
-import gr.uom.java.ast.LocalVariableDeclarationObject;
-import gr.uom.java.ast.MethodObject;
 import gr.uom.java.ast.SystemObject;
 
-import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.Point;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.ListIterator;
-import java.util.Set;
-
 import javax.swing.DefaultListModel;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
-import javax.swing.JPanel;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
-import javax.swing.border.EmptyBorder;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
@@ -37,34 +27,20 @@ import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.progress.IProgressService;
 
-import DataHandling.PackageExplorerSelection;
 import UI.MainWindow;
 
 /*	This class implements the detection of Inline Method opportunities
  *	in the user's code. It searches for private methods containing a single
  *	statement whose prefix does not include "get","set","add" or "remove".
  */
-public class InlineMethodIdentification extends RefactoringDetectorCode {
+public class InlineMethodIdentification extends RefactoringDetectorMethodSubject {
 
 	private ArrayList<AbstractMethodDeclaration> candidateMethods;
 	private ArrayList<ClassObject> declaringClasses;
-	
+		
 	public InlineMethodIdentification()
 	{
-		mainFrame = new JFrame();
-		mainFrame.setTitle("Inline Method Opportunities");
-		mainFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-		mainFrame.setResizable(false);
-		mainFrame.setLocation(new Point(200, 100));
-		mainFrame.setSize(new Dimension(800, 600));
-		mainFrame.setIconImage(java.awt.Toolkit.getDefaultToolkit().getImage(getClass().getResource("/images/repair.png")));
-		
-		mainPanel = new JPanel();
-		mainPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
-		mainFrame.setContentPane(mainPanel);
-		mainPanel.setLayout(null);
-		
-		opportunitiesFound = true;
+		super("Inline Method Opportunities");
 	}
 	
 	@Override
@@ -135,7 +111,6 @@ public class InlineMethodIdentification extends RefactoringDetectorCode {
 		boolean flag = false;
 		
 		for (int i = 0; i < declaringClasses.size(); i++) {
-			//String classMethodString = tempVariables.get(i).getClassObject().getName() + "::" + tempVariables.get(i).getMethodObject().getName();
 			flag = false;
 			
 			for (int j = 0; j < listItems.size(); j++) {
@@ -187,94 +162,70 @@ public class InlineMethodIdentification extends RefactoringDetectorCode {
 								}
 							});
 						}
-						
+						int threshold = 1;
 						final SystemObject systemObject = ASTReader.getSystemObject();
-						final Set<ClassObject> classObjectsToBeExamined = new LinkedHashSet<ClassObject>();
-						final Set<AbstractMethodDeclaration> methodObjectsToBeExamined = new LinkedHashSet<AbstractMethodDeclaration>();
 						
-						if(selectionInfo.getSelectedPackageFragmentRoot() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedPackageFragmentRoot()));
-						}
-						else if(selectionInfo.getSelectedPackageFragment() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedPackageFragment()));
-						}
-						else if(selectionInfo.getSelectedCompilationUnit() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedCompilationUnit()));
-						}
-						else if(selectionInfo.getSelectedType() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedType()));
-						}
-						else if(selectionInfo.getSelectedMethod() != null) {
-							AbstractMethodDeclaration methodObject = systemObject.getMethodObject(selectionInfo.getSelectedMethod());
-							if(methodObject != null) {
-								ClassObject declaringClass = systemObject.getClassObject(methodObject.getClassName());
-								if(declaringClass != null && !declaringClass.isEnum() && !declaringClass.isInterface() && methodObject.getMethodBody() != null)
-									methodObjectsToBeExamined.add(methodObject);
-							}
-						}
-						else {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects());
-						}
-
-						if(!classObjectsToBeExamined.isEmpty())
-						{
-							for(ClassObject classObject : classObjectsToBeExamined)
-							{
-								if(!classObject.isEnum() && !classObject.isInterface()) 
-								{
-									ListIterator<MethodObject> methodIterator = classObject.getMethodIterator();
-									while(methodIterator.hasNext()) 
-									{
-										methodObjectsToBeExamined.add(methodIterator.next());
-									}
-								}
-							}
-						}
+						identifySubjects(identifyScope(), systemObject);
 						
-						if(!methodObjectsToBeExamined.isEmpty())
-						{
-							for(AbstractMethodDeclaration methodObject : methodObjectsToBeExamined)
-							{									
-								List<Statement> statements = methodObject.getMethodDeclaration().getBody().statements();
-																
-								ClassObject declaringClass = systemObject.getClassObject(methodObject.getClassName());
-								
-								List<IExtendedModifier> modifiers = methodObject.getMethodDeclaration().modifiers();
-								
-								boolean isPrivateOrProtected = false;
-								
-								for (int i = 0; i < modifiers.size(); i++) {
-									if(modifiers.get(i) instanceof Modifier)
-									{
-										Modifier modifier = (Modifier) modifiers.get(i);
-										
-										if((modifier.isPrivate())||(modifier.isProtected()))
-										{
-											isPrivateOrProtected = true;
-										}
-									}
-								}
-								
-								if((statements.size() == 1)
-									&&(isPrivateOrProtected)
-									&&(!methodObject.getName().startsWith("get"))
-									&&(!methodObject.getName().startsWith("set"))
-									&&(!methodObject.getName().startsWith("add"))
-									&&(!methodObject.getName().startsWith("remove")))
-								{
-									candidateMethods.add(methodObject);
-									declaringClasses.add(declaringClass);
-								}
-							}
-						}
+						identifyOpportunities(systemObject, threshold);
+						
 					}
 					catch (InvocationTargetException e) {
 						e.printStackTrace();
 					} catch (InterruptedException e) {
 						e.printStackTrace();
+					} catch (ClassNotFoundException e) {
+						e.printStackTrace();
+					} catch (IllegalAccessException e) {
+						e.printStackTrace();
+					} catch (IllegalArgumentException e) {
+						e.printStackTrace();
 					}
 				}
 			});
+		}
+	}
+	
+	
+	private void identifyOpportunities(SystemObject systemObject, int threshold)
+	{
+		if (!subjectList.isEmpty())
+		{
+			for(AbstractMethodDeclaration methodObject : subjectList)
+			{
+				
+				ClassObject declaringClass = systemObject.getClassObject(methodObject.getClassName());
+				List<IExtendedModifier> modifiers = methodObject.getMethodDeclaration().modifiers();
+				
+				boolean isPrivateOrProtected = false;
+				
+				for (int i = 0; i < modifiers.size(); i++) {
+					if(modifiers.get(i) instanceof Modifier)
+					{
+						Modifier modifier = (Modifier) modifiers.get(i);
+						
+						if((modifier.isPrivate())||(modifier.isProtected()))
+						{
+							isPrivateOrProtected = true;
+						}
+					}
+				}
+				
+				if (isPrivateOrProtected)
+				{
+					List<Statement> statements = methodObject.getMethodDeclaration().getBody().statements();
+					
+					if((statements.size() <= threshold)
+							&&(!methodObject.getName().startsWith("get"))
+							&&(!methodObject.getName().startsWith("set"))
+							&&(!methodObject.getName().startsWith("add"))
+							&&(!methodObject.getName().startsWith("remove")))
+						{
+							candidateMethods.add(methodObject);
+							declaringClasses.add(declaringClass);
+						}
+				}
+			}
 		}
 	}
 

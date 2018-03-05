@@ -25,6 +25,7 @@ import org.eclipse.jface.viewers.IStructuredSelection;
 import DataHandling.PackageExplorerSelection;
 import MapRegions.MainRefactoringRegion;
 import MapRegions.MainSmellsRegion;
+import RefactoringDetectors.scopeType;
 
 /*	This class handles the creation of the main window of Refactoring Trip Advisor.
  * 	The RTA application starts by clicking on the corresponding option under Eclipse's
@@ -172,37 +173,37 @@ public class MainWindow implements IWorkbenchWindowActionDelegate{
 			if(element instanceof IJavaProject) {
 				javaProject = (IJavaProject)element;
 
-				selectionInfo.setSelections(null, null, null, null, null);
+				selectionInfo.setSelections(null, null, null, null, null, scopeType.NONE);
 			}
 			else if(element instanceof IPackageFragmentRoot) {
 				IPackageFragmentRoot packageFragmentRoot = (IPackageFragmentRoot)element;
 				javaProject = packageFragmentRoot.getJavaProject();
 				
-				selectionInfo.setSelections(packageFragmentRoot, null, null, null, null);
+				selectionInfo.setSelections(packageFragmentRoot, null, null, null, null, scopeType.PACKAGE_FRAGMENT_ROOT);
 			}
 			else if(element instanceof IPackageFragment) {
 				IPackageFragment packageFragment = (IPackageFragment)element;
 				javaProject = packageFragment.getJavaProject();
 				
-				selectionInfo.setSelections(null, packageFragment, null, null, null);
+				selectionInfo.setSelections(null, packageFragment, null, null, null, scopeType.PACKAGE_FRAGMENT);
 			}
 			else if(element instanceof ICompilationUnit) {
 				ICompilationUnit compilationUnit = (ICompilationUnit)element;
 				javaProject = compilationUnit.getJavaProject();
 				
-				selectionInfo.setSelections(null, null, compilationUnit, null, null);
+				selectionInfo.setSelections(null, null, compilationUnit, null, null, scopeType.COMPILATION_UNIT);
 			}
 			else if(element instanceof IType) {
 				IType type = (IType)element;
 				javaProject = type.getJavaProject();
 				
-				selectionInfo.setSelections(null, null, null, type, null);
+				selectionInfo.setSelections(null, null, null, type, null, scopeType.TYPE);
 			}
 			else if(element instanceof IMethod) {
 				IMethod method = (IMethod)element;
 				javaProject = method.getJavaProject();
 				
-				selectionInfo.setSelections(null, null, null, null, method);
+				selectionInfo.setSelections(null, null, null, null, method, scopeType.METHOD);
 			}
 			if(javaProject != null && !javaProject.equals(selectionInfo.getSelectedProject())) {
 				selectionInfo.setSelectedProject(javaProject);

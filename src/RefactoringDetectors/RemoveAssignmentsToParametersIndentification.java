@@ -2,29 +2,20 @@ package RefactoringDetectors;
 
 import gr.uom.java.ast.ASTReader;
 import gr.uom.java.ast.AbstractMethodDeclaration;
-import gr.uom.java.ast.ClassObject;
-import gr.uom.java.ast.MethodObject;
 import gr.uom.java.ast.ParameterObject;
 import gr.uom.java.ast.SystemObject;
 
-import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.Point;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.Set;
-
 import javax.swing.DefaultListModel;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
-import javax.swing.JPanel;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
-import javax.swing.border.EmptyBorder;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
@@ -44,33 +35,20 @@ import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.progress.IProgressService;
 
-import DataHandling.PackageExplorerSelection;
 import ParsingHelpers.MethodParameterObject;
 import UI.MainWindow;
 
 /*	This class implements the detection of Remove Assignments To Parameters opportunities
  *	in the user's code. It searches for any assignments done to each method's parameters.
  */
-public class RemoveAssignmentsToParametersIndentification extends RefactoringDetectorCode{
+public class RemoveAssignmentsToParametersIndentification extends RefactoringDetectorMethodSubject{
 
 	private ArrayList<MethodParameterObject> parameters;
+	private ArrayList<MethodParameterObject> opportunities;
 	
 	public RemoveAssignmentsToParametersIndentification()
 	{
-		mainFrame = new JFrame();
-		mainFrame.setTitle("Remove Assignments to Parameters Opportunities");
-		mainFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-		mainFrame.setResizable(false);
-		mainFrame.setLocation(new Point(200, 100));
-		mainFrame.setSize(new Dimension(800, 600));
-		mainFrame.setIconImage(java.awt.Toolkit.getDefaultToolkit().getImage(getClass().getResource("/images/repair.png")));
-		
-		mainPanel = new JPanel();
-		mainPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
-		mainFrame.setContentPane(mainPanel);
-		mainPanel.setLayout(null);
-		
-		opportunitiesFound = true;
+		super("Remove Assignments to Parameters Opportunities");
 	}
 	
 	@Override
@@ -80,7 +58,7 @@ public class RemoveAssignmentsToParametersIndentification extends RefactoringDet
 		
 		beginASTParsing();
 		
-		if(!assignedParametersFound())
+		if (!opportunities.isEmpty())
 			opportunitiesFound = false;
 		
 		final JList list_1 = new JList();
@@ -97,12 +75,11 @@ public class RemoveAssignmentsToParametersIndentification extends RefactoringDet
 				String[] splitted = value.split("::");
 				list2Model.clear();
 			
-				for (int i = 0; i < parameters.size(); i++) {
-					if((parameters.get(i).getClassObject().getName().equals(splitted[0]))
-						&&((parameters.get(i).getMethodObject().getName().equals(splitted[1])))
-						&&(parameters.get(i).isAssigned()))
+				for (int i = 0; i < opportunities.size(); i++) {
+					if((opportunities.get(i).getClassObject().getName().equals(splitted[0]))
+						&&((opportunities.get(i).getMethodObject().getName().equals(splitted[1]))))
 					{
-						list2Model.addElement(parameters.get(i).getParameter().getType().toString() + " " + parameters.get(i).getParameter().getName());
+						list2Model.addElement(opportunities.get(i).getParameter().getType().toString() + " " + opportunities.get(i).getParameter().getName());
 					}
 				}
 				
@@ -211,75 +188,55 @@ public class RemoveAssignmentsToParametersIndentification extends RefactoringDet
 						}
 						
 						final SystemObject systemObject = ASTReader.getSystemObject();
-						final Set<ClassObject> classObjectsToBeExamined = new LinkedHashSet<ClassObject>();
-						final Set<AbstractMethodDeclaration> methodObjectsToBeExamined = new LinkedHashSet<AbstractMethodDeclaration>();
 						
-						if(selectionInfo.getSelectedPackageFragmentRoot() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedPackageFragmentRoot()));
-						}
-						else if(selectionInfo.getSelectedPackageFragment() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedPackageFragment()));
-						}
-						else if(selectionInfo.getSelectedCompilationUnit() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedCompilationUnit()));
-						}
-						else if(selectionInfo.getSelectedType() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedType()));
-						}
-						else if(selectionInfo.getSelectedMethod() != null) {
-							AbstractMethodDeclaration methodObject = systemObject.getMethodObject(selectionInfo.getSelectedMethod());
-							if(methodObject != null) {
-								ClassObject declaringClass = systemObject.getClassObject(methodObject.getClassName());
-								if(declaringClass != null && !declaringClass.isEnum() && !declaringClass.isInterface() && methodObject.getMethodBody() != null)
-									methodObjectsToBeExamined.add(methodObject);
-							}
-						}
-						else {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects());
-						}
+						identifySubjects(identifyScope(), systemObject);
+						identifyOpportunities(systemObject);
 						
-						//Some print tests
-						
-						if(!classObjectsToBeExamined.isEmpty())
-						{
-							for(ClassObject classObject : classObjectsToBeExamined)
-							{
-								if(!classObject.isEnum() && !classObject.isInterface()) 
-								{
-									ListIterator<MethodObject> methodIterator = classObject.getMethodIterator();
-									while(methodIterator.hasNext()) 
-									{
-										methodObjectsToBeExamined.add(methodIterator.next());
-									}
-								}
-							}
-						}
-						
-						if(!methodObjectsToBeExamined.isEmpty())
-						{
-							for(AbstractMethodDeclaration methodObject : methodObjectsToBeExamined)
-							{	
-								ListIterator<ParameterObject> parameterIterator =  methodObject.getParameterListIterator();
-								
-								List<Statement> statements = methodObject.getMethodDeclaration().getBody().statements();
-								
-								
-								while(parameterIterator.hasNext())
-								{
-									parameters.add(new MethodParameterObject(systemObject.getClassObject(methodObject.getClassName()), methodObject, parameterIterator.next()));
-								}
-																
-								findAssignments(statements);
-							}
-						}
 					}
 					catch (InvocationTargetException e) {
 						e.printStackTrace();
 					} catch (InterruptedException e) {
 						e.printStackTrace();
+					} catch (ClassNotFoundException e) {
+						e.printStackTrace();
+					} catch (IllegalAccessException e) {
+						e.printStackTrace();
+					} catch (IllegalArgumentException e) {
+						e.printStackTrace();
 					}
 				}
 			});
+		}
+	}
+	
+	private void identifyOpportunities(SystemObject systemObject)
+	{
+		if(!subjectList.isEmpty())
+		{
+			for(AbstractMethodDeclaration methodObject : subjectList)
+			{	
+				ListIterator<ParameterObject> parameterIterator =  methodObject.getParameterListIterator();
+				
+				List<Statement> statements = methodObject.getMethodDeclaration().getBody().statements();
+				
+				
+				while(parameterIterator.hasNext())
+				{
+					parameters.add(new MethodParameterObject(systemObject.getClassObject(methodObject.getClassName()), methodObject, parameterIterator.next()));
+				}
+												
+				findAssignments(statements);
+			}
+			
+			opportunities = new ArrayList<MethodParameterObject>();
+			
+			for (MethodParameterObject parameter: parameters)
+			{
+				if (parameter.isAssigned())
+				{
+					opportunities.add(parameter);
+				}
+			}
 		}
 	}
 	

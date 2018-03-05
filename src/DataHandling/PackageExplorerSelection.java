@@ -7,6 +7,8 @@ import org.eclipse.jdt.core.IPackageFragment;
 import org.eclipse.jdt.core.IPackageFragmentRoot;
 import org.eclipse.jdt.core.IType;
 
+import RefactoringDetectors.scopeType;
+
 /*	This class handles the different types of selections
  * 	the user selects from Eclipse's Package Explorer.
  * 	The selection is given as input to the implemented
@@ -21,13 +23,22 @@ public class PackageExplorerSelection {
 	private IType selectedType;
 	private IMethod selectedMethod;
 	
-	public void setSelections(IPackageFragmentRoot packageFragmentRoot, IPackageFragment packageFragment, ICompilationUnit compilationUnit, IType type, IMethod method)
+	private scopeType selectedScope;
+	
+	
+	public void setSelections(IPackageFragmentRoot packageFragmentRoot, IPackageFragment packageFragment, ICompilationUnit compilationUnit, IType type, IMethod method, scopeType scope)
 	{
 		selectedPackageFragmentRoot = packageFragmentRoot;
 		selectedPackageFragment = packageFragment;
 		selectedCompilationUnit = compilationUnit;
 		selectedType = type;
 		selectedMethod = method;
+		
+		selectedScope = scope;
+	}
+	
+	public scopeType getSelectedScope() {
+		return selectedScope;
 	}
 
 	public IJavaProject getSelectedProject() {

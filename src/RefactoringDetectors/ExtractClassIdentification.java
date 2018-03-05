@@ -6,12 +6,7 @@ import gr.uom.java.distance.ExtractClassCandidateGroup;
 import gr.uom.java.distance.ExtractClassCandidateRefactoring;
 import gr.uom.java.distance.MySystem;
 
-import java.awt.Dimension;
-import java.awt.Point;
-
 import javax.swing.JFrame;
-import javax.swing.JPanel;
-import javax.swing.border.EmptyBorder;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.DefaultListModel;
@@ -42,34 +37,21 @@ import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.progress.IProgressService;
 
-import DataHandling.PackageExplorerSelection;
 import UI.MainWindow;
 
 /*	This class implements the detection of Extract Class opportunities
  *	in the user's code. It uses the hierarchical agglomerative clustering
  *	algorithm implemented by JDeodorant.
  */
-public class ExtractClassIdentification  extends RefactoringDetectorCode{
+public class ExtractClassIdentification  extends RefactoringDetectorClassSubject{
 
 	private ArrayList<ExtractClassCandidateRefactoring> candidates;
 	private ArrayList<String> itemArray;
 	private ExtractClassCandidateGroup[] extractTable;
 
-	public ExtractClassIdentification() {
-		mainFrame = new JFrame();
-		mainFrame.setTitle("Extract Class Opportunities");
-		mainFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-		mainFrame.setResizable(false);
-		mainFrame.setLocation(new Point(200, 100));
-		mainFrame.setSize(new Dimension(800, 600));
-		mainFrame.setIconImage(java.awt.Toolkit.getDefaultToolkit().getImage(getClass().getResource("/images/repair.png")));
-		
-		mainPanel = new JPanel();
-		mainPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
-		mainFrame.setContentPane(mainPanel);
-		mainPanel.setLayout(null);
-		
-		opportunitiesFound = true;
+	public ExtractClassIdentification()
+	{
+		super("Extract Class Opportunities");
 	}
 	
 	@Override
@@ -93,7 +75,6 @@ public class ExtractClassIdentification  extends RefactoringDetectorCode{
 				for(ExtractClassCandidateRefactoring cand : tempCands)
 				{
 					candidates.add(cand);
-					//System.out.println(cand.toString());
 				}
 			}
 		}
@@ -193,9 +174,6 @@ public class ExtractClassIdentification  extends RefactoringDetectorCode{
 		DefaultListModel listModel = new DefaultListModel();
 		int counter = 1;
 		
-		//for (int i = 0; i < extractTable.length; i++) {
-		//	if(!extractTable[i].getSource().equals("current system"))
-		//	{
 		for(ExtractClassCandidateRefactoring cand : candidates)
 		{
 			String item = "Opportunity " + counter + " (Source class: " + cand.getSource() + ")";
@@ -204,8 +182,6 @@ public class ExtractClassIdentification  extends RefactoringDetectorCode{
 			itemArray.add(item);
 		}
 				
-		//}
-		//}
 
 		return listModel;
 	}
@@ -231,72 +207,77 @@ public class ExtractClassIdentification  extends RefactoringDetectorCode{
 							});
 						}
 						SystemObject systemObject = ASTReader.getSystemObject();
-						Set<ClassObject> classObjectsToBeExamined = new LinkedHashSet<ClassObject>();
-						if(selectionInfo.getSelectedPackageFragmentRoot() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedPackageFragmentRoot()));
-						}
-						else if(selectionInfo.getSelectedPackageFragment() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedPackageFragment()));
-						}
-						else if(selectionInfo.getSelectedCompilationUnit() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedCompilationUnit()));
-						}
-						else if(selectionInfo.getSelectedType() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedType()));
-						}
-						else {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects());
-						}
-						final Set<String> classNamesToBeExamined = new LinkedHashSet<String>();
-						for(ClassObject classObject : classObjectsToBeExamined) {
-							if(!classObject.isEnum())
-								classNamesToBeExamined.add(classObject.getName());
-						}
-						MySystem system = new MySystem(systemObject, true);
-						final DistanceMatrix distanceMatrix = new DistanceMatrix(system);
-						ps.busyCursorWhile(new IRunnableWithProgress() {
-							public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
-								distanceMatrix.generateDistances(monitor);
-							}
-						});
-						final List<ExtractClassCandidateRefactoring> extractClassCandidateList = new ArrayList<ExtractClassCandidateRefactoring>();
-			
-						ps.busyCursorWhile(new IRunnableWithProgress() {
-							public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
-								extractClassCandidateList.addAll(distanceMatrix.getExtractClassCandidateRefactorings(classNamesToBeExamined, monitor));
-							}
-						});
-						HashMap<String, ExtractClassCandidateGroup> groupedBySourceClassMap = new HashMap<String, ExtractClassCandidateGroup>();
-						for(ExtractClassCandidateRefactoring candidate : extractClassCandidateList) {
-							if(groupedBySourceClassMap.keySet().contains(candidate.getSourceEntity())) {
-								groupedBySourceClassMap.get(candidate.getSourceEntity()).addCandidate(candidate);
-							}
-							else {
-								ExtractClassCandidateGroup group = new ExtractClassCandidateGroup(candidate.getSourceEntity());
-								group.addCandidate(candidate);
-								groupedBySourceClassMap.put(candidate.getSourceEntity(), group);
-							}
-						}
-						for(String sourceClass : groupedBySourceClassMap.keySet()) {
-							groupedBySourceClassMap.get(sourceClass).groupConcepts();
-						}
-			
-						extractTable = new ExtractClassCandidateGroup[groupedBySourceClassMap.values().size() + 1];
-						ExtractClassCandidateGroup currentSystem = new ExtractClassCandidateGroup("current system");
-						currentSystem.setMinEP(new CurrentSystem(distanceMatrix).getEntityPlacement());
-						extractTable[0] = currentSystem;
-						int counter = 1;
-						for(ExtractClassCandidateGroup candidate : groupedBySourceClassMap.values()) {
-							extractTable[counter] = candidate;
-							counter++;
-						}
+						
+						identifySubjects(identifyScope(), systemObject);
+						identifyOpportunities(systemObject, ps);
+								
 					} catch (InvocationTargetException e) {
 						e.printStackTrace();
 					} catch (InterruptedException e) {
+						e.printStackTrace();
+					} catch (ClassNotFoundException e) {
+						e.printStackTrace();
+					} catch (IllegalAccessException e) {
+						e.printStackTrace();
+					} catch (IllegalArgumentException e) {
 						e.printStackTrace();
 					}
 				}
 			});
 		}
 	}
+	
+	private void identifyOpportunities(SystemObject systemObject, IProgressService ps)
+	{
+		final Set<String> classNamesToBeExamined = new LinkedHashSet<String>();
+		try {
+			for (ClassObject classObject : subjectList) {
+				if (!classObject.isEnum())
+					classNamesToBeExamined.add(classObject.getName());
+			}
+			MySystem system = new MySystem(systemObject, true);
+			final DistanceMatrix distanceMatrix = new DistanceMatrix(system);
+
+			ps.busyCursorWhile(new IRunnableWithProgress() {
+				public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
+					distanceMatrix.generateDistances(monitor);
+				}
+			});
+
+			final List<ExtractClassCandidateRefactoring> extractClassCandidateList = new ArrayList<ExtractClassCandidateRefactoring>();
+
+			ps.busyCursorWhile(new IRunnableWithProgress() {
+				public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
+					extractClassCandidateList.addAll(
+							distanceMatrix.getExtractClassCandidateRefactorings(classNamesToBeExamined, monitor));
+				}
+			});
+			HashMap<String, ExtractClassCandidateGroup> groupedBySourceClassMap = new HashMap<String, ExtractClassCandidateGroup>();
+			for (ExtractClassCandidateRefactoring candidate : extractClassCandidateList) {
+				if (groupedBySourceClassMap.keySet().contains(candidate.getSourceEntity())) {
+					groupedBySourceClassMap.get(candidate.getSourceEntity()).addCandidate(candidate);
+				} else {
+					ExtractClassCandidateGroup group = new ExtractClassCandidateGroup(candidate.getSourceEntity());
+					group.addCandidate(candidate);
+					groupedBySourceClassMap.put(candidate.getSourceEntity(), group);
+				}
+			}
+			for (String sourceClass : groupedBySourceClassMap.keySet()) {
+				groupedBySourceClassMap.get(sourceClass).groupConcepts();
+			}
+
+			extractTable = new ExtractClassCandidateGroup[groupedBySourceClassMap.values().size() + 1];
+			ExtractClassCandidateGroup currentSystem = new ExtractClassCandidateGroup("current system");
+			currentSystem.setMinEP(new CurrentSystem(distanceMatrix).getEntityPlacement());
+			extractTable[0] = currentSystem;
+			int counter = 1;
+			for (ExtractClassCandidateGroup candidate : groupedBySourceClassMap.values()) {
+				extractTable[counter] = candidate;
+				counter++;
+			}
+		} catch (InvocationTargetException | InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
+	
 }

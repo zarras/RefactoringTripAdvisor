@@ -7,6 +7,7 @@ import RefactoringDetectors.ExtractMethodIdentification;
 import RefactoringDetectors.InlineTempIdentification;
 import RefactoringDetectors.MoveMethodIdentification;
 import RefactoringDetectors.RefactoringDetector;
+import RefactoringDetectors.RefactoringDetector;
 import UI.MainWindow;
 
 public class RefactoringOptions {

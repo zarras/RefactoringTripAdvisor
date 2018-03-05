@@ -2,36 +2,25 @@ package RefactoringDetectors;
 
 import gr.uom.java.ast.ASTReader;
 import gr.uom.java.ast.ClassObject;
-import gr.uom.java.ast.MethodObject;
 import gr.uom.java.ast.ParameterObject;
 import gr.uom.java.ast.SystemObject;
 import gr.uom.java.ast.AbstractMethodDeclaration;
 
-import java.awt.Dimension;
-import java.awt.Point;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.ListIterator;
-import java.util.Set;
-
 import javax.swing.JFrame;
-import javax.swing.JPanel;
-import javax.swing.border.EmptyBorder;
-
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jface.operation.IRunnableWithProgress;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.progress.IProgressService;
 
-import DataHandling.PackageExplorerSelection;
 import UI.MainWindow;
 
 import javax.swing.JLabel;
 
 import java.awt.Font;
-
 import javax.swing.DefaultListModel;
 import javax.swing.SwingConstants;
 import javax.swing.JList;
@@ -40,29 +29,17 @@ import javax.swing.ListSelectionModel;
 /*	This class implements the detection of Introduce Parameter Object opportunities
  *	in the user's code. It searches for methods with long parameter lists.
  */
-public class IntroduceParameterObjectIdentification extends RefactoringDetectorCode 
+public class IntroduceParameterObjectIdentification extends RefactoringDetectorMethodSubject 
 {
 
 	private ArrayList<ClassObject> declaringClasses;
 	private ArrayList<AbstractMethodDeclaration> candidateMethods;
 	private JLabel lblNewLabel_1;
 	
+	
 	public IntroduceParameterObjectIdentification()
 	{
-		mainFrame = new JFrame();
-		mainFrame.setTitle("Introduce Parameter Object Opportunities");
-		mainFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-		mainFrame.setResizable(false);
-		mainFrame.setLocation(new Point(200, 100));
-		mainFrame.setSize(new Dimension(548, 568));
-		mainFrame.setIconImage(java.awt.Toolkit.getDefaultToolkit().getImage(getClass().getResource("/images/repair.png")));
-		
-		mainPanel = new JPanel();
-		mainPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
-		mainFrame.setContentPane(mainPanel);
-		mainPanel.setLayout(null);
-		
-		opportunitiesFound = true;
+		super("Introduce Parameter Object Opportunities");
 	}
 	
 	@Override
@@ -139,79 +116,51 @@ public class IntroduceParameterObjectIdentification extends RefactoringDetectorC
 						}
 						
 						final SystemObject systemObject = ASTReader.getSystemObject();
-						final Set<ClassObject> classObjectsToBeExamined = new LinkedHashSet<ClassObject>();
-						final Set<AbstractMethodDeclaration> methodObjectsToBeExamined = new LinkedHashSet<AbstractMethodDeclaration>();
 						
-						if(selectionInfo.getSelectedPackageFragmentRoot() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedPackageFragmentRoot()));
-						}
-						else if(selectionInfo.getSelectedPackageFragment() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedPackageFragment()));
-						}
-						else if(selectionInfo.getSelectedCompilationUnit() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedCompilationUnit()));
-						}
-						else if(selectionInfo.getSelectedType() != null) {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects(selectionInfo.getSelectedType()));
-						}
-						else if(selectionInfo.getSelectedMethod() != null) {
-							AbstractMethodDeclaration methodObject = systemObject.getMethodObject(selectionInfo.getSelectedMethod());
-							if(methodObject != null) {
-								ClassObject declaringClass = systemObject.getClassObject(methodObject.getClassName());
-								if(declaringClass != null && !declaringClass.isEnum() && !declaringClass.isInterface() && methodObject.getMethodBody() != null)
-									methodObjectsToBeExamined.add(methodObject);
-							}
-						}
-						else {
-							classObjectsToBeExamined.addAll(systemObject.getClassObjects());
-						}
+						identifySubjects(identifyScope(), systemObject);
 						
-						//Some print tests
+						identifyOpportunities(systemObject, 1);
 						
-						if(!classObjectsToBeExamined.isEmpty())
-						{
-							for(ClassObject classObject : classObjectsToBeExamined)
-							{
-								if(!classObject.isEnum() && !classObject.isInterface()) 
-								{
-									ListIterator<MethodObject> methodIterator = classObject.getMethodIterator();
-									while(methodIterator.hasNext()) 
-									{
-										methodObjectsToBeExamined.add(methodIterator.next());
-									}
-								}
-							}
-						}
-						
-						if(!methodObjectsToBeExamined.isEmpty())
-						{
-							for(AbstractMethodDeclaration methodObject : methodObjectsToBeExamined)
-							{	
-								ListIterator<ParameterObject> parameterIterator =  methodObject.getParameterListIterator();
-								
-								int parameterCounter = 0;
-
-								while(parameterIterator.hasNext())
-								{
-									parameterCounter++;
-									parameterIterator.next();
-								}
-																
-								if(parameterCounter >= 5)
-								{
-									candidateMethods.add(methodObject);
-									declaringClasses.add(systemObject.getClassObject(methodObject.getClassName()));
-								}
-							}
-						}
 					}
 					catch (InvocationTargetException e) {
 						e.printStackTrace();
 					} catch (InterruptedException e) {
 						e.printStackTrace();
+					} catch (ClassNotFoundException e) {
+						e.printStackTrace();
+					} catch (IllegalAccessException e) {
+						e.printStackTrace();
+					} catch (IllegalArgumentException e) {
+						e.printStackTrace();
 					}
 				}
 			});
+		}
+	}
+	
+	private void identifyOpportunities(SystemObject systemObject, int threshold)
+	{
+		if(!subjectList.isEmpty())
+		{
+			for(AbstractMethodDeclaration methodObject : subjectList)
+			{
+				
+				ListIterator<ParameterObject> parameterIterator =  methodObject.getParameterListIterator();
+				int parameterCounter = 0;
+
+				while(parameterIterator.hasNext())
+				{
+					parameterCounter++;
+					parameterIterator.next();
+				}
+
+				if (parameterCounter>=threshold)
+				{
+					candidateMethods.add(methodObject);
+					ClassObject declaringClass = systemObject.getClassObject(methodObject.getClassName());
+					declaringClasses.add(declaringClass);
+				}
+			}
 		}
 	}
 }
