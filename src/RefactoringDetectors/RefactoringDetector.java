@@ -80,7 +80,7 @@ public abstract class RefactoringDetector {
 	{
 		scope = selectionInfo.getSelectedScope();
 		
-		Class packageSelection = Class.forName("PackageExplorerSelection");
+		Class packageSelection = Class.forName("DataHandling.PackageExplorerSelection");
 		
 		if (listOfValidScopes.contains(scope) && scope != scopeType.NONE)
 		{
